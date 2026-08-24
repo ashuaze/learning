@@ -1,0 +1,1856 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>导数的本质｜互动学习模拟器</title>
+<style>:root {
+  color-scheme: light dark;
+  background-color: transparent !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --main-surface-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: light-dark(rgb(26 28 31), rgb(255 255 255));
+  --card: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(rgb(255 255 255), rgb(45 45 45));
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(13 13 13));
+  --secondary: light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%));
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: light-dark(
+    rgb(26 28 31 / 49.4%),
+    rgb(255 255 255 / 49.8%)
+  );
+  --accent: light-dark(rgb(229 242 255), rgb(13 39 63));
+  --accent-foreground: var(--primary);
+  --destructive: light-dark(rgb(226 85 7), rgb(255 133 73));
+  --border: light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%));
+  --input: light-dark(
+    rgb(26 28 31 / 11.8%),
+    color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+  );
+  --ring: light-dark(rgb(51 156 255), rgb(131 195 255 / 76%));
+  --font-size-base: 14px;
+  --red: light-dark(rgb(186 38 35), rgb(250 66 62));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: 10px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+  --color-background-primary: var(--background);
+  --color-text-primary: var(--foreground);
+  --color-border-secondary: var(--border);
+}
+
+:root[data-visualize-standalone] {
+  background-color: var(--background) !important;
+}
+
+/* Generic mobile code-block hosts provide light/dark mode but no series palette.
+   AppBlock hosts set all six variables themselves. */
+:root:not([data-app-block-surface]) {
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(#f3883b, #f59a56);
+  --viz-series-3: light-dark(#5dc977, #74d58b);
+  --viz-series-4: light-dark(#eb77b1, #f08fc0);
+  --viz-series-5: light-dark(#9b79ec, #aa91ef);
+  --viz-series-6: light-dark(#3ab9b1, #5acbc2);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+:root:not([data-app-block-surface]) > body {
+  padding: 12px;
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The bundled tooltip runtime owns [data-tooltip]. AppBlock's CSS-only
+   pseudo-tooltip can widen dense grids even while hidden. */
+main [data-tooltip]::after {
+  content: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--interactive-label-primary-default, var(--primary-foreground));
+  background: var(--interactive-bg-primary-default, var(--foreground));
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(
+    in srgb,
+    var(--interactive-label-primary-default, var(--primary-foreground)) 50%,
+    transparent
+  );
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed="true"],
+    [aria-selected="true"],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+</style>
+</head>
+<body>
+<div id="derivative-lab" class="derivative-lab">
+  <div class="viz-row derivative-topbar">
+    <div>
+      <div id="derivative-kicker" class="text-small text-muted">第 1 / 6 步</div>
+      <h2 id="derivative-title">一辆车“此刻”有多快？</h2>
+    </div>
+    <span id="derivative-status" class="viz-badge">从平均变化开始</span>
+  </div>
+
+  <div id="derivative-progress" class="derivative-progress" aria-label="学习进度"></div>
+
+  <div class="viz-controls derivative-parameters" aria-label="数学参数">
+    <label class="form-label" for="derivative-a">
+      观察位置 <code>a</code>：<strong id="derivative-a-value">1.00</strong>
+      <input id="derivative-a" class="form-range" type="range" min="-1.5" max="1.5" step="0.1" value="1" aria-describedby="derivative-a-help">
+      <span id="derivative-a-help" class="text-small text-muted">移动曲线上的目标点 P</span>
+    </label>
+    <label class="form-label" for="derivative-h">
+      两点间距 <code>h</code>：<strong id="derivative-h-value">1.000</strong>
+      <input id="derivative-h" class="form-range" type="range" min="0" max="4" step="0.25" value="0" aria-describedby="derivative-h-help">
+      <span id="derivative-h-help" class="text-small text-muted">向右拖动，让 h 按 10 的幂次接近 0</span>
+    </label>
+  </div>
+
+  <div id="derivative-concepts" class="viz-row derivative-concepts" aria-label="本步概念"></div>
+
+  <section class="derivative-stage" aria-live="polite">
+    <div id="derivative-prompt" class="derivative-prompt"></div>
+    <div class="derivative-visual-wrap">
+      <svg id="derivative-plot" class="derivative-plot" viewBox="0 0 760 400" role="img" aria-labelledby="derivative-plot-title derivative-plot-desc">
+        <title id="derivative-plot-title">导数的图像实验</title>
+        <desc id="derivative-plot-desc">函数曲线、割线、切线与局部放大图会随参数变化。</desc>
+      </svg>
+    </div>
+    <div id="derivative-readout" class="derivative-readout"></div>
+    <div id="derivative-insight" class="derivative-insight"></div>
+    <div id="derivative-quiz" class="derivative-quiz"></div>
+  </section>
+
+  <div class="viz-controls derivative-nav" aria-label="场景控制">
+    <button id="derivative-prev" class="btn" type="button">
+      <i data-lucide="chevron-left" aria-hidden="true"></i> 上一步
+    </button>
+    <button id="derivative-play" class="btn" type="button" aria-pressed="false">
+      <i data-lucide="play" aria-hidden="true"></i> <span>自动播放</span>
+    </button>
+    <button id="derivative-next" class="btn btn-primary" type="button">
+      下一步 <i data-lucide="chevron-right" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <p class="text-small text-muted derivative-disclosure">教学说明：图像和数值由公式实时计算；视觉缩放、颜色与动画仅用于帮助理解，不构成一般性证明。</p>
+</div>
+
+<style>
+  #derivative-lab {
+    color: var(--foreground);
+    width: 100%;
+    font-family: ui-serif, Georgia, "Times New Roman", "Noto Serif SC", serif;
+  }
+
+  #derivative-lab .derivative-topbar {
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+  }
+
+  #derivative-lab h2 {
+    margin: 3px 0 0;
+  }
+
+  #derivative-lab .derivative-progress {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    margin: 18px 0;
+  }
+
+  #derivative-lab .derivative-progress-step {
+    min-width: 0;
+    color: var(--muted-foreground);
+  }
+
+  #derivative-lab .derivative-progress-mark {
+    display: block;
+    height: 5px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+    background: var(--muted);
+  }
+
+  #derivative-lab .derivative-progress-step.is-done .derivative-progress-mark,
+  #derivative-lab .derivative-progress-step.is-active .derivative-progress-mark {
+    background: var(--viz-series-1);
+  }
+
+  #derivative-lab .derivative-progress-step.is-active {
+    color: var(--foreground);
+  }
+
+  #derivative-lab .derivative-progress-label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #derivative-lab .derivative-parameters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  #derivative-lab .derivative-parameters .form-label {
+    margin: 0;
+  }
+
+  #derivative-lab .derivative-parameters strong,
+  #derivative-lab .derivative-readout strong,
+  #derivative-lab code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #derivative-lab .derivative-concepts {
+    min-height: 38px;
+    gap: 7px;
+    margin: 8px 0;
+  }
+
+  #derivative-lab .derivative-concept {
+    cursor: help;
+  }
+
+  #derivative-lab .derivative-stage {
+    min-height: 620px;
+  }
+
+  #derivative-lab .derivative-prompt {
+    margin: 8px 0 12px;
+    max-width: 76ch;
+  }
+
+  #derivative-lab .derivative-visual-wrap {
+    width: 100%;
+    min-height: 390px;
+  }
+
+  #derivative-lab .derivative-plot {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  #derivative-lab .derivative-plot text {
+    fill: var(--muted-foreground);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+
+  #derivative-lab .derivative-plot .plot-label {
+    fill: var(--foreground);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  #derivative-lab .derivative-plot .grid-line {
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+
+  #derivative-lab .derivative-plot .axis-line {
+    stroke: var(--muted-foreground);
+    stroke-width: 1.2;
+  }
+
+  #derivative-lab .derivative-plot .curve-line {
+    fill: none;
+    stroke: var(--viz-series-1);
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  #derivative-lab .derivative-plot .secant-line {
+    stroke: var(--viz-series-2);
+    stroke-width: 2.5;
+    vector-effect: non-scaling-stroke;
+  }
+
+  #derivative-lab .derivative-plot .tangent-line {
+    stroke: var(--viz-series-3);
+    stroke-width: 2.5;
+    stroke-dasharray: 9 6;
+    vector-effect: non-scaling-stroke;
+  }
+
+  #derivative-lab .derivative-plot .remainder-line {
+    stroke: var(--destructive);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  #derivative-lab .derivative-plot .point-p {
+    fill: var(--viz-series-1);
+    stroke: var(--background);
+    stroke-width: 3;
+  }
+
+  #derivative-lab .derivative-plot .point-q {
+    fill: var(--viz-series-2);
+    stroke: var(--background);
+    stroke-width: 3;
+  }
+
+  #derivative-lab .derivative-plot .zoom-box {
+    fill: var(--accent);
+    fill-opacity: .42;
+    stroke: var(--primary);
+    stroke-width: 1.5;
+  }
+
+  #derivative-lab .derivative-readout {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 18px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #derivative-lab .derivative-readout-item {
+    min-width: 0;
+  }
+
+  #derivative-lab .derivative-readout-item span {
+    display: block;
+    color: var(--muted-foreground);
+  }
+
+  #derivative-lab .derivative-insight {
+    margin: 14px 0;
+    max-width: 76ch;
+  }
+
+  #derivative-lab .derivative-formula {
+    display: block;
+    overflow-x: auto;
+    padding: 8px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 1.08em;
+  }
+
+  #derivative-lab .derivative-quiz {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  #derivative-lab .derivative-quiz h3 {
+    margin: 0 0 10px;
+  }
+
+  #derivative-lab .derivative-options {
+    display: grid;
+    gap: 8px;
+    margin: 10px 0;
+  }
+
+  #derivative-lab .derivative-feedback {
+    margin-top: 10px;
+  }
+
+  #derivative-lab .derivative-feedback.is-correct {
+    color: var(--green);
+  }
+
+  #derivative-lab .derivative-feedback.is-wrong {
+    color: var(--destructive);
+  }
+
+  #derivative-lab .derivative-nav {
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  #derivative-lab .derivative-disclosure {
+    margin: 14px 0 0;
+  }
+
+  @media (max-width: 600px) {
+    #derivative-lab .derivative-topbar {
+      align-items: start;
+    }
+
+    #derivative-lab .derivative-parameters,
+    #derivative-lab .derivative-readout {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    #derivative-lab .derivative-progress-label {
+      display: none;
+    }
+
+    #derivative-lab .derivative-visual-wrap {
+      min-height: 240px;
+    }
+
+    #derivative-lab .derivative-nav {
+      justify-content: stretch;
+    }
+
+    #derivative-lab .derivative-nav .btn {
+      flex: 1 1 auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #derivative-lab * {
+      scroll-behavior: auto !important;
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.getElementById("derivative-lab");
+    if (!root) return;
+
+    const els = {
+      kicker: root.querySelector("#derivative-kicker"),
+      title: root.querySelector("#derivative-title"),
+      status: root.querySelector("#derivative-status"),
+      progress: root.querySelector("#derivative-progress"),
+      a: root.querySelector("#derivative-a"),
+      aValue: root.querySelector("#derivative-a-value"),
+      h: root.querySelector("#derivative-h"),
+      hValue: root.querySelector("#derivative-h-value"),
+      concepts: root.querySelector("#derivative-concepts"),
+      prompt: root.querySelector("#derivative-prompt"),
+      plot: root.querySelector("#derivative-plot"),
+      readout: root.querySelector("#derivative-readout"),
+      insight: root.querySelector("#derivative-insight"),
+      quiz: root.querySelector("#derivative-quiz"),
+      prev: root.querySelector("#derivative-prev"),
+      play: root.querySelector("#derivative-play"),
+      next: root.querySelector("#derivative-next")
+    };
+
+    const stages = [
+      {
+        short: "问题",
+        title: "一辆车“此刻”有多快？",
+        status: "从平均变化开始",
+        prompt: "只看一个时刻，路程没有变化区间，速度似乎无从计算。先把“此刻”两边留出一小段间距。",
+        concepts: [
+          ["函数", "函数：给每个允许的输入 x 分配一个输出 f(x)。"],
+          ["变化率", "变化率：输出变化量除以输入变化量，描述一段区间内的平均快慢。"]
+        ]
+      },
+      {
+        short: "割线",
+        title: "先连接两个点，得到平均变化率",
+        status: "割线斜率",
+        prompt: "P 是目标点，Q 与它相距 h。连接 P、Q 的直线叫割线；它的斜率就是这段区间的平均变化率。",
+        concepts: [
+          ["割线", "割线：接收曲线上的两个点，用直线连接，产生区间平均变化率。"],
+          ["差商", "差商：把输出增量 f(a+h)-f(a) 除以输入增量 h。"]
+        ]
+      },
+      {
+        short: "靠近",
+        title: "让 Q 靠近 P：什么量稳定下来？",
+        status: "h → 0，但 h ≠ 0",
+        prompt: "向右拖动 h。观察割线斜率 m = 2a + h：点越来越近时，h 这一项逐渐消失，斜率趋近 2a。",
+        concepts: [
+          ["极限", "极限：输入无限接近目标时，观察输出是否稳定趋近某个值。"],
+          ["h ≠ 0", "差商要求 h 不等于 0；我们只让 h 任意接近 0。"]
+        ]
+      },
+      {
+        short: "放大",
+        title: "局部放大：曲线越来越像直线",
+        status: "局部线性",
+        prompt: "左图框出 P 附近宽度约为 h 的区域；右图把这小块重新放大。曲线与切线之间的弯曲余量相对变小。",
+        concepts: [
+          ["切线", "切线：通过目标点、斜率等于导数的局部最佳直线。"],
+          ["局部线性", "局部线性：充分放大可导函数时，它与某条直线的相对误差趋近 0。"]
+        ]
+      },
+      {
+        short: "定义",
+        title: "把稳定的斜率命名为导数",
+        status: "f′(a) = 2a",
+        prompt: "对 f(x)=x²，代数化简给出差商 2a+h；让 h 趋近 0，得到 f′(a)=2a。这既是切线斜率，也是局部线性预测的系数。",
+        concepts: [
+          ["导数", "导数：接收一个观察点，取差商的极限，产生该点的局部线性系数。"],
+          ["线性近似", "线性近似：用 f(a)+f′(a)·Δx 预测附近的函数值。"]
+        ]
+      },
+      {
+        short: "边界",
+        title: "反例：连续的尖点也可能不可导",
+        status: "|x| 在 0 处不可导",
+        prompt: "函数 |x| 在 0 处没有断开，但左侧割线斜率恒为 −1，右侧恒为 +1。两侧没有共同极限，因此不存在唯一切线。",
+        concepts: [
+          ["单侧导数", "单侧导数：分别从左边和右边接近目标点得到的差商极限。"],
+          ["不可导", "不可导：差商没有唯一有限极限；尖点是其中一种原因。"]
+        ]
+      }
+    ];
+
+    const quizzes = {
+      1: {
+        question: "割线斜率描述的是什么？",
+        options: ["整个函数永远的变化速度", "区间 [a, a+h] 上的平均变化率", "点 a 的函数值"],
+        correct: 1,
+        explanation: "割线同时依赖 P、Q 两点，所以它描述一个区间；只有继续令 h→0，才可能得到点 a 的瞬时变化率。"
+      },
+      3: {
+        question: "局部放大时，哪一个关系在稳定？",
+        options: ["曲线逐渐变成常数", "函数值逐渐变成 0", "函数增量与某个线性规则的相对误差趋近 0"],
+        correct: 2,
+        explanation: "可导的核心不是曲线真的变直，而是缩小邻域后，线性项主导变化，弯曲余量相对更小。"
+      },
+      5: {
+        question: "为什么 |x| 在 x=0 处不可导？",
+        options: ["因为函数在 0 处不连续", "因为左、右差商极限不同", "因为函数值等于 0"],
+        correct: 1,
+        explanation: "|x| 在 0 处连续；失败发生在斜率：左侧趋近 −1，右侧趋近 +1，无法得到唯一的局部线性规则。"
+      }
+    };
+
+    const state = {
+      stage: 0,
+      a: 1,
+      exponent: 0,
+      answers: {},
+      playing: false,
+      timer: null
+    };
+
+    function f(x) {
+      return x * x;
+    }
+
+    function hValue() {
+      return Math.pow(10, -state.exponent);
+    }
+
+    function fmt(value, digits = 3) {
+      const tiny = Math.abs(value) < Math.pow(10, -digits) / 2 ? 0 : value;
+      return tiny.toFixed(digits).replace(/\.0+$|(?<=\.[0-9]*?)0+$/g, "");
+    }
+
+    function svgEl(name, attrs = {}, text = "") {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function append(parent, name, attrs, text) {
+      const node = svgEl(name, attrs, text);
+      parent.appendChild(node);
+      return node;
+    }
+
+    function pathFor(fn, xMin, xMax, xMap, yMap, samples = 160) {
+      let d = "";
+      for (let i = 0; i <= samples; i += 1) {
+        const x = xMin + (xMax - xMin) * i / samples;
+        const px = xMap(x);
+        const py = yMap(fn(x));
+        d += (i === 0 ? "M" : "L") + px.toFixed(2) + " " + py.toFixed(2) + " ";
+      }
+      return d.trim();
+    }
+
+    function drawAxes(group, box, xMin, xMax, yMin, yMax, xLabel = "x", yLabel = "f(x)") {
+      const xMap = x => box.x + (x - xMin) / (xMax - xMin) * box.w;
+      const yMap = y => box.y + box.h - (y - yMin) / (yMax - yMin) * box.h;
+      for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x += 1) {
+        append(group, "line", { x1: xMap(x), y1: box.y, x2: xMap(x), y2: box.y + box.h, class: "grid-line" });
+        append(group, "text", { x: xMap(x), y: box.y + box.h + 19, "text-anchor": "middle" }, String(x));
+      }
+      for (let y = Math.ceil(yMin); y <= Math.floor(yMax); y += 1) {
+        append(group, "line", { x1: box.x, y1: yMap(y), x2: box.x + box.w, y2: yMap(y), class: "grid-line" });
+        if (y !== 0) append(group, "text", { x: box.x - 8, y: yMap(y) + 4, "text-anchor": "end" }, String(y));
+      }
+      if (yMin <= 0 && yMax >= 0) append(group, "line", { x1: box.x, y1: yMap(0), x2: box.x + box.w, y2: yMap(0), class: "axis-line" });
+      if (xMin <= 0 && xMax >= 0) append(group, "line", { x1: xMap(0), y1: box.y, x2: xMap(0), y2: box.y + box.h, class: "axis-line" });
+      append(group, "text", { x: box.x + box.w, y: box.y + box.h + 19, "text-anchor": "end", class: "plot-label" }, xLabel);
+      append(group, "text", { x: box.x + 4, y: box.y + 14, class: "plot-label" }, yLabel);
+      return { xMap, yMap };
+    }
+
+    function drawPoint(group, x, y, xMap, yMap, cls, label, dx, dy) {
+      append(group, "circle", { cx: xMap(x), cy: yMap(y), r: 6, class: cls });
+      append(group, "text", { x: xMap(x) + dx, y: yMap(y) + dy, class: "plot-label" }, label);
+    }
+
+    function drawMainPlot() {
+      const svg = els.plot;
+      while (svg.lastChild && !["title", "desc"].includes(svg.lastChild.tagName)) svg.removeChild(svg.lastChild);
+      const stage = state.stage;
+      const h = hValue();
+      const a = stage === 5 ? 0 : state.a;
+      const absMode = stage === 5;
+      const box = stage === 3 ? { x: 54, y: 35, w: 310, h: 300 } : { x: 64, y: 35, w: 650, h: 300 };
+      const xMin = -2.2;
+      const xMax = 2.2;
+      const yMin = absMode ? -0.5 : -0.8;
+      const yMax = absMode ? 2.7 : 4.8;
+      const group = append(svg, "g", {});
+      const maps = drawAxes(group, box, xMin, xMax, yMin, yMax);
+      const fn = absMode ? Math.abs : f;
+      append(group, "path", { d: pathFor(fn, xMin, xMax, maps.xMap, maps.yMap), class: "curve-line" });
+
+      if (stage === 0) {
+        drawPoint(group, a, f(a), maps.xMap, maps.yMap, "point-p", "P(a, f(a))", 10, -10);
+        append(group, "text", { x: box.x + box.w - 8, y: box.y + 24, "text-anchor": "end", class: "plot-label" }, "f(x) = x²");
+        return;
+      }
+
+      if (absMode) {
+        const rightX = h;
+        const leftX = -h;
+        const extent = 1.8;
+        append(group, "line", { x1: maps.xMap(-extent), y1: maps.yMap(extent), x2: maps.xMap(0), y2: maps.yMap(0), class: "secant-line" });
+        append(group, "line", { x1: maps.xMap(0), y1: maps.yMap(0), x2: maps.xMap(extent), y2: maps.yMap(extent), class: "tangent-line" });
+        drawPoint(group, 0, 0, maps.xMap, maps.yMap, "point-p", "P(0,0)", 10, 19);
+        drawPoint(group, leftX, Math.abs(leftX), maps.xMap, maps.yMap, "point-q", "Q₋", -28, -9);
+        drawPoint(group, rightX, Math.abs(rightX), maps.xMap, maps.yMap, "point-q", "Q₊", 10, -9);
+        append(group, "text", { x: maps.xMap(-1.65), y: maps.yMap(1.85), class: "plot-label" }, "左斜率 −1");
+        append(group, "text", { x: maps.xMap(0.75), y: maps.yMap(1.05), class: "plot-label" }, "右斜率 +1");
+        return;
+      }
+
+      const qx = a + h;
+      const py = f(a);
+      const qy = f(qx);
+      const secantSlope = 2 * a + h;
+      const tangentSlope = 2 * a;
+      const lineX1 = xMin;
+      const lineX2 = xMax;
+
+      if (stage >= 1) {
+        append(group, "line", {
+          x1: maps.xMap(lineX1), y1: maps.yMap(py + secantSlope * (lineX1 - a)),
+          x2: maps.xMap(lineX2), y2: maps.yMap(py + secantSlope * (lineX2 - a)),
+          class: "secant-line"
+        });
+        drawPoint(group, qx, qy, maps.xMap, maps.yMap, "point-q", "Q(a+h)", 10, -10);
+      }
+
+      if (stage >= 3) {
+        append(group, "line", {
+          x1: maps.xMap(lineX1), y1: maps.yMap(py + tangentSlope * (lineX1 - a)),
+          x2: maps.xMap(lineX2), y2: maps.yMap(py + tangentSlope * (lineX2 - a)),
+          class: "tangent-line"
+        });
+      }
+      drawPoint(group, a, py, maps.xMap, maps.yMap, "point-p", "P(a)", 10, 18);
+
+      if (stage === 3) {
+        const visibleH = Math.max(h, 0.06);
+        const x0 = maps.xMap(a - visibleH * 1.2);
+        const x1 = maps.xMap(a + visibleH * 1.2);
+        const yValues = [f(a - visibleH * 1.2), f(a + visibleH * 1.2), py];
+        const top = maps.yMap(Math.max(...yValues) + visibleH * 0.3);
+        const bottom = maps.yMap(Math.min(...yValues) - visibleH * 0.3);
+        append(group, "rect", { x: Math.min(x0, x1), y: Math.min(top, bottom), width: Math.max(8, Math.abs(x1 - x0)), height: Math.max(8, Math.abs(bottom - top)), rx: 3, class: "zoom-box" });
+        append(group, "text", { x: box.x + box.w / 2, y: 20, "text-anchor": "middle", class: "plot-label" }, "全局图");
+        drawZoomPlot(svg, a, h);
+      }
+
+      if (stage === 4) {
+        const linearY = py + tangentSlope * h;
+        append(group, "line", { x1: maps.xMap(qx), y1: maps.yMap(linearY), x2: maps.xMap(qx), y2: maps.yMap(qy), class: "remainder-line" });
+        append(group, "circle", { cx: maps.xMap(qx), cy: maps.yMap(linearY), r: 5, fill: "var(--viz-series-3)" });
+        append(group, "text", { x: maps.xMap(qx) + 10, y: maps.yMap(linearY) + 18, class: "plot-label" }, "线性预测");
+      }
+    }
+
+    function drawZoomPlot(svg, a, h) {
+      const box = { x: 430, y: 35, w: 285, h: 300 };
+      const group = append(svg, "g", {});
+      const tangentSlope = 2 * a;
+      const span = 1.5;
+      const ySpan = Math.max(2.4, Math.abs(tangentSlope) * span + 0.8);
+      const maps = drawAxes(group, box, -span, span, -ySpan, ySpan, "u", "Δf / h");
+      const normalizedCurve = u => tangentSlope * u + h * u * u;
+      const linear = u => tangentSlope * u;
+      append(group, "path", { d: pathFor(normalizedCurve, -span, span, maps.xMap, maps.yMap), class: "curve-line" });
+      append(group, "path", { d: pathFor(linear, -span, span, maps.xMap, maps.yMap), class: "tangent-line" });
+      append(group, "text", { x: box.x + box.w / 2, y: 20, "text-anchor": "middle", class: "plot-label" }, "把 P 附近按 1/h 放大");
+      append(group, "text", { x: box.x + box.w - 5, y: box.y + 22, "text-anchor": "end", class: "plot-label" }, "弯曲余量 = h·u²");
+    }
+
+    function readoutHtml() {
+      const h = hValue();
+      const a = state.stage === 5 ? 0 : state.a;
+      if (state.stage === 0) {
+        return [
+          ["目标输入", "a = " + fmt(a, 2)],
+          ["目标输出", "f(a) = " + fmt(f(a), 3)],
+          ["待解决", "一点处的变化率"]
+        ];
+      }
+      if (state.stage === 5) {
+        return [
+          ["从左接近", "m₋ = −1"],
+          ["从右接近", "m₊ = +1"],
+          ["结论", "不存在唯一导数"]
+        ];
+      }
+      const m = 2 * a + h;
+      const derivative = 2 * a;
+      if (state.stage === 4) {
+        return [
+          ["实际增量", "Δf = " + fmt(f(a + h) - f(a), 6)],
+          ["线性预测", "f′(a)h = " + fmt(derivative * h, 6)],
+          ["余量", "h² = " + fmt(h * h, 8)]
+        ];
+      }
+      return [
+        ["水平变化", "h = " + fmt(h, 4)],
+        ["割线斜率", "m = " + fmt(m, 5)],
+        ["与导数之差", "|m − 2a| = " + fmt(Math.abs(h), 5)]
+      ];
+    }
+
+    function insightHtml() {
+      const h = hValue();
+      const a = state.stage === 5 ? 0 : state.a;
+      const derivative = 2 * a;
+      const items = [
+        "<strong>张力：</strong>瞬时变化没有可见的时间区间，但我们可以从越来越短的区间寻找稳定规律。",
+        "<span class=\"derivative-formula\">m = [f(a+h)−f(a)] / h</span><strong>输入：</strong>两点 P、Q；<strong>输出：</strong>它们之间的平均变化率。",
+        "<span class=\"derivative-formula\">[ (a+h)²−a² ] / h = 2a+h → " + fmt(derivative, 3) + "</span>注意：h 接近 0，但差商里从不把 h 直接设成 0。",
+        "<strong>稳定关系：</strong>归一化后的曲线是 <code>2a·u + h·u²</code>。当 h→0，弯曲余量 <code>h·u²</code> 消退，只剩线性规则 <code>2a·u</code>。",
+        "<span class=\"derivative-formula\">f′(a)=lim<sub>h→0</sub> [f(a+h)−f(a)]/h = 2a</span><strong>局部预测：</strong>f(a+h) ≈ f(a)+f′(a)h；本例的误差恰好是 h² = " + fmt(h * h, 8) + "。",
+        "<span class=\"derivative-formula\">lim<sub>h→0⁻</sub> [|h|−0]/h = −1 &nbsp;≠&nbsp; +1 = lim<sub>h→0⁺</sub> [|h|−0]/h</span><strong>纠正误区：</strong>连续只表示图像不断开；它不保证存在唯一的局部斜率。"
+      ];
+      return items[state.stage];
+    }
+
+    function renderQuiz() {
+      const quiz = quizzes[state.stage];
+      if (!quiz) {
+        els.quiz.innerHTML = "";
+        return;
+      }
+      const answer = state.answers[state.stage];
+      const selected = answer ? answer.selected : null;
+      const optionHtml = quiz.options.map((option, index) => {
+        const checked = selected === index ? " checked" : "";
+        const disabled = answer ? " disabled" : "";
+        return "<label class=\"form-check\"><input class=\"form-check-input\" type=\"radio\" name=\"derivative-q-" + state.stage + "\" value=\"" + index + "\"" + checked + disabled + "><span class=\"form-check-label\">" + option + "</span></label>";
+      }).join("");
+      let feedback = "";
+      if (answer) {
+        const correct = answer.selected === quiz.correct;
+        feedback = "<div class=\"derivative-feedback " + (correct ? "is-correct" : "is-wrong") + "\" role=\"status\"><strong>" + (correct ? "正确。" : "还差一点。") + "</strong> " + quiz.explanation + "</div>";
+      }
+      els.quiz.innerHTML = "<h3>阶段问题</h3><div>" + quiz.question + "</div><div class=\"derivative-options\">" + optionHtml + "</div>" + (answer ? "" : "<button class=\"btn\" type=\"button\" id=\"derivative-submit\">提交答案</button>") + feedback;
+      const submit = els.quiz.querySelector("#derivative-submit");
+      if (submit) {
+        submit.addEventListener("click", () => {
+          const checked = els.quiz.querySelector("input[type=radio]:checked");
+          if (!checked) return;
+          state.answers[state.stage] = { selected: Number(checked.value) };
+          renderQuiz();
+          if (state.playing) scheduleAdvance();
+        });
+      }
+    }
+
+    function renderProgress() {
+      els.progress.innerHTML = stages.map((stage, index) => {
+        const cls = index < state.stage ? "is-done" : index === state.stage ? "is-active" : "";
+        return "<div class=\"derivative-progress-step " + cls + "\"><span class=\"derivative-progress-mark\"></span><span class=\"derivative-progress-label text-small\">" + stage.short + "</span></div>";
+      }).join("");
+    }
+
+    function renderConcepts() {
+      els.concepts.innerHTML = stages[state.stage].concepts.map(([name, tooltip]) => {
+        return "<button type=\"button\" class=\"btn derivative-concept\" data-tooltip=\"" + tooltip + "\">" + name + "</button>";
+      }).join("");
+    }
+
+    function updatePlayButton() {
+      els.play.setAttribute("aria-pressed", state.playing ? "true" : "false");
+      els.play.innerHTML = state.playing
+        ? "<i data-lucide=\"pause\" aria-hidden=\"true\"></i> <span>暂停</span>"
+        : "<i data-lucide=\"play\" aria-hidden=\"true\"></i> <span>自动播放</span>";
+      if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+    }
+
+    function render() {
+      const stage = stages[state.stage];
+      const h = hValue();
+      const effectiveA = state.stage === 5 ? 0 : state.a;
+      els.kicker.textContent = "第 " + (state.stage + 1) + " / " + stages.length + " 步";
+      els.title.textContent = stage.title;
+      els.status.textContent = stage.status;
+      els.prompt.textContent = stage.prompt;
+      els.aValue.textContent = fmt(effectiveA, 2);
+      els.hValue.textContent = h < 0.001 ? h.toExponential(1) : fmt(h, 4);
+      els.a.disabled = state.stage === 5;
+      els.prev.disabled = state.stage === 0;
+      els.next.disabled = state.stage === stages.length - 1;
+      els.readout.innerHTML = readoutHtml().map(([label, value]) => "<div class=\"derivative-readout-item\"><span class=\"text-small\">" + label + "</span><strong>" + value + "</strong></div>").join("");
+      els.insight.innerHTML = insightHtml();
+      renderProgress();
+      renderConcepts();
+      drawMainPlot();
+      renderQuiz();
+      updatePlayButton();
+    }
+
+    function clearTimer() {
+      if (state.timer) window.clearTimeout(state.timer);
+      state.timer = null;
+    }
+
+    function pause() {
+      state.playing = false;
+      clearTimer();
+      updatePlayButton();
+    }
+
+    function scheduleAdvance() {
+      clearTimer();
+      if (!state.playing) return;
+      const quiz = quizzes[state.stage];
+      if (quiz && !state.answers[state.stage]) {
+        pause();
+        return;
+      }
+      if (state.stage >= stages.length - 1) {
+        pause();
+        return;
+      }
+      state.timer = window.setTimeout(() => {
+        state.stage += 1;
+        render();
+        scheduleAdvance();
+      }, 4200);
+    }
+
+    function go(delta) {
+      const next = Math.max(0, Math.min(stages.length - 1, state.stage + delta));
+      if (next === state.stage) return;
+      state.stage = next;
+      render();
+      if (state.playing) scheduleAdvance();
+    }
+
+    function resetAnswers() {
+      state.answers = {};
+      pause();
+    }
+
+    els.a.addEventListener("input", event => {
+      state.a = Number(event.target.value);
+      resetAnswers();
+      render();
+    });
+
+    els.h.addEventListener("input", event => {
+      state.exponent = Number(event.target.value);
+      resetAnswers();
+      render();
+    });
+
+    els.prev.addEventListener("click", () => go(-1));
+    els.next.addEventListener("click", () => go(1));
+    els.play.addEventListener("click", () => {
+      state.playing = !state.playing;
+      updatePlayButton();
+      if (state.playing) scheduleAdvance();
+      else clearTimer();
+    });
+
+    render();
+  })();
+</script>
+
+<script id="codex-visualization-floating-ui-core" src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
+<script id="codex-visualization-floating-ui-dom" src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
+<script id="codex-visualization-lucide" async src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js"></script>
+<script id="codex-visualization-tooltip">/* oxlint-disable typescript/no-unsafe-argument, typescript/no-unsafe-call, typescript/no-unsafe-return */
+// Runs inside the visualization sandbox, not the host webview.
+(() => {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set(["top", "right", "bottom", "left"]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =>
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest("[data-tooltip]")
+      : null;
+  const containsTarget = (trigger, target) =>
+    target?.nodeType != null && trigger.contains(target);
+  const getContent = (trigger) =>
+    trigger.getAttribute("data-tooltip")?.trim() ?? "";
+  const getPlacement = (trigger) => {
+    const placement = trigger.getAttribute("data-tooltip-placement");
+    return tooltipPlacements.has(placement) ? placement : "top";
+  };
+  const getTooltip = () => {
+    if (tooltip == null) {
+      tooltip = document.createElement("div");
+      tooltip.id = tooltipId;
+      tooltip.className = "tooltip";
+      tooltip.setAttribute("role", "tooltip");
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) => {
+    const ids = new Set(
+      (trigger.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute("aria-describedby");
+    } else {
+      trigger.setAttribute("aria-describedby", [...ids].join(" "));
+    }
+  };
+  const clearOpenTimeout = () => {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) => {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) => {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              "--tooltip-available-width",
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              "--tooltip-available-height",
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: "fixed",
+    })
+      .then(({ x, y }) => {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = "visible";
+      })
+      .catch(() => {
+        if (activeTrigger === trigger && request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) => {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = "hidden";
+    floating.style.transform = "translate(0, 0)";
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () => {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) => {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() < skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() => {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(":focus-visible")) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) => {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () => {
+    closeTooltip(false);
+    document.removeEventListener("pointerover", handlePointerOpen);
+    document.removeEventListener("pointerout", handleLeave);
+    document.removeEventListener("focusin", handleFocusIn);
+    document.removeEventListener("focusout", handleLeave);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("contextmenu", handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener("pointerover", handlePointerOpen);
+  document.addEventListener("pointerout", handleLeave);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleLeave);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("contextmenu", handleContextMenu);
+  window.addEventListener("pagehide", destroy, { once: true });
+})();
+</script>
+<script id="codex-visualization-lucide-initialization">(() => {
+  const initialize = () => {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById("codex-visualization-lucide")
+    ?.addEventListener("load", initialize, { once: true });
+})();
+</script>
+</body>
+</html>
