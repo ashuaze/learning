@@ -1,0 +1,2069 @@
+<!doctype html>
+<html lang="zh-CN" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>现代大语言模型内部机制互动模拟器</title>
+<style>:root {
+  color-scheme: light dark;
+  background-color: transparent !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --main-surface-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: light-dark(rgb(26 28 31), rgb(255 255 255));
+  --card: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(rgb(255 255 255), rgb(45 45 45));
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(13 13 13));
+  --secondary: light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%));
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: light-dark(
+    rgb(26 28 31 / 49.4%),
+    rgb(255 255 255 / 49.8%)
+  );
+  --accent: light-dark(rgb(229 242 255), rgb(13 39 63));
+  --accent-foreground: var(--primary);
+  --destructive: light-dark(rgb(226 85 7), rgb(255 133 73));
+  --border: light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%));
+  --input: light-dark(
+    rgb(26 28 31 / 11.8%),
+    color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+  );
+  --ring: light-dark(rgb(51 156 255), rgb(131 195 255 / 76%));
+  --font-size-base: 14px;
+  --red: light-dark(rgb(186 38 35), rgb(250 66 62));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: 10px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+  --color-background-primary: var(--background);
+  --color-text-primary: var(--foreground);
+  --color-border-secondary: var(--border);
+}
+
+:root[data-visualize-standalone] {
+  background-color: var(--background) !important;
+}
+
+/* Generic mobile code-block hosts provide light/dark mode but no series palette.
+   AppBlock hosts set all six variables themselves. */
+:root:not([data-app-block-surface]) {
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(#f3883b, #f59a56);
+  --viz-series-3: light-dark(#5dc977, #74d58b);
+  --viz-series-4: light-dark(#eb77b1, #f08fc0);
+  --viz-series-5: light-dark(#9b79ec, #aa91ef);
+  --viz-series-6: light-dark(#3ab9b1, #5acbc2);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+:root:not([data-app-block-surface]) > body {
+  padding: 12px;
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The bundled tooltip runtime owns [data-tooltip]. AppBlock's CSS-only
+   pseudo-tooltip can widen dense grids even while hidden. */
+main [data-tooltip]::after {
+  content: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--interactive-label-primary-default, var(--primary-foreground));
+  background: var(--interactive-bg-primary-default, var(--foreground));
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(
+    in srgb,
+    var(--interactive-label-primary-default, var(--primary-foreground)) 50%,
+    transparent
+  );
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed="true"],
+    [aria-selected="true"],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+</style>
+</head>
+<body>
+<div id="llm-internals-simulator" class="llm-sim">
+  <div class="viz-controls" aria-label="模拟器控制">
+    <label class="form-label" for="llm-sim-input">
+      输入一句话
+      <input id="llm-sim-input" class="form-control" type="text" value="我喜欢学习 AI" autocomplete="off">
+    </label>
+    <div class="viz-row llm-sim-actions">
+      <button id="llm-sim-prev" class="btn" type="button">
+        <i data-lucide="chevron-left" aria-hidden="true"></i>
+        上一步
+      </button>
+      <button id="llm-sim-pause" class="btn" type="button" aria-pressed="false">
+        <i data-lucide="pause" aria-hidden="true"></i>
+        <span>暂停</span>
+      </button>
+      <button id="llm-sim-next" class="btn btn-primary" type="button">
+        下一步
+        <i data-lucide="chevron-right" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="llm-sim-progress" aria-label="处理流程"></div>
+
+  <section class="llm-sim-stage" aria-live="polite">
+    <div class="viz-row llm-sim-stage-head">
+      <div>
+        <div id="llm-sim-kicker" class="text-small text-muted"></div>
+        <h2 id="llm-sim-stage-title"></h2>
+      </div>
+      <span id="llm-sim-status" class="viz-badge"></span>
+    </div>
+    <div id="llm-sim-visual" class="llm-sim-visual"></div>
+    <div id="llm-sim-detail" class="llm-sim-detail text-small"></div>
+  </section>
+</div>
+
+<style>
+  #llm-internals-simulator {
+    --sim-gap: 14px;
+    color: var(--foreground);
+    width: 100%;
+  }
+
+  #llm-internals-simulator .llm-sim-actions {
+    margin-inline-start: auto;
+    align-self: end;
+  }
+
+  #llm-internals-simulator .llm-sim-progress {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 6px;
+    margin: 18px 0 20px;
+  }
+
+  #llm-internals-simulator .llm-sim-progress-item {
+    min-width: 0;
+    color: var(--muted-foreground);
+  }
+
+  #llm-internals-simulator .llm-sim-progress-mark {
+    display: block;
+    height: 5px;
+    margin-bottom: 7px;
+    background: var(--muted);
+    border-radius: 999px;
+  }
+
+  #llm-internals-simulator .llm-sim-progress-item.is-done .llm-sim-progress-mark,
+  #llm-internals-simulator .llm-sim-progress-item.is-active .llm-sim-progress-mark {
+    background: var(--viz-series-1);
+  }
+
+  #llm-internals-simulator .llm-sim-progress-item.is-active {
+    color: var(--foreground);
+  }
+
+  #llm-internals-simulator .llm-sim-progress-label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #llm-internals-simulator .llm-sim-stage {
+    min-height: 590px;
+  }
+
+  #llm-internals-simulator .llm-sim-stage-head {
+    justify-content: space-between;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+
+  #llm-internals-simulator .llm-sim-stage-head h2 {
+    margin: 3px 0 0;
+  }
+
+  #llm-internals-simulator .llm-sim-visual {
+    min-height: 300px;
+    display: grid;
+    align-content: center;
+  }
+
+  #llm-internals-simulator .llm-sim-detail {
+    min-height: 24px;
+    margin-top: 14px;
+    color: var(--muted-foreground);
+  }
+
+  #llm-internals-simulator .token-flow,
+  #llm-internals-simulator .vector-flow,
+  #llm-internals-simulator .output-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  #llm-internals-simulator .token-node {
+    display: inline-grid;
+    place-items: center;
+    min-width: 58px;
+    min-height: 54px;
+    padding: 8px 10px;
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--viz-series-1) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--viz-series-1) 40%, var(--border));
+    border-radius: 10px;
+  }
+
+  #llm-internals-simulator .token-node.is-focus {
+    background: color-mix(in srgb, var(--viz-series-1) 26%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--viz-series-1) 35%, transparent);
+  }
+
+  #llm-internals-simulator .token-id {
+    color: var(--muted-foreground);
+  }
+
+  #llm-internals-simulator .flow-arrow {
+    color: var(--muted-foreground);
+    display: inline-flex;
+  }
+
+  #llm-internals-simulator .vector-group {
+    display: grid;
+    gap: 8px;
+    min-width: 82px;
+    justify-items: center;
+  }
+
+  #llm-internals-simulator .vector-bars {
+    height: 118px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  #llm-internals-simulator .vector-bar-wrap {
+    width: 8px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  #llm-internals-simulator .vector-bar {
+    width: 100%;
+    min-height: 3px;
+    background: var(--viz-series-1);
+    border-radius: 999px;
+    transform-origin: center;
+    transition: height 420ms ease, opacity 420ms ease;
+  }
+
+  #llm-internals-simulator .vector-values {
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+
+  #llm-internals-simulator .attention-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr);
+    gap: 22px;
+    align-items: center;
+  }
+
+  #llm-internals-simulator .attention-diagram {
+    color: var(--viz-series-1);
+    width: 100%;
+    min-height: 250px;
+  }
+
+  #llm-internals-simulator .attention-diagram svg {
+    width: 100%;
+    display: block;
+    overflow: visible;
+  }
+
+  #llm-internals-simulator .attention-edge {
+    stroke: currentColor;
+    fill: none;
+  }
+
+  #llm-internals-simulator .attention-node {
+    fill: color-mix(in srgb, var(--viz-series-1) 18%, var(--background));
+    stroke: currentColor;
+  }
+
+  #llm-internals-simulator .attention-node-label {
+    fill: var(--foreground);
+  }
+
+  #llm-internals-simulator .matrix-wrap {
+    overflow-x: auto;
+  }
+
+  #llm-internals-simulator .attention-matrix {
+    display: grid;
+    gap: 4px;
+    min-width: max-content;
+    justify-content: center;
+  }
+
+  #llm-internals-simulator .matrix-cell {
+    width: 42px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    color: var(--foreground);
+  }
+
+  #llm-internals-simulator .matrix-label {
+    display: grid;
+    place-items: center;
+    color: var(--muted-foreground);
+  }
+
+  #llm-internals-simulator .matrix-cell.is-masked {
+    color: var(--muted-foreground);
+    background: var(--muted);
+  }
+
+  #llm-internals-simulator .block-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  #llm-internals-simulator .block-node {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--viz-series-2) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--viz-series-2) 38%, var(--border));
+  }
+
+  #llm-internals-simulator .probability-list {
+    display: grid;
+    gap: 10px;
+    width: min(620px, 100%);
+    margin: 0 auto;
+  }
+
+  #llm-internals-simulator .probability-row {
+    display: grid;
+    grid-template-columns: minmax(62px, auto) 1fr 56px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  #llm-internals-simulator .probability-track {
+    height: 14px;
+    background: var(--muted);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  #llm-internals-simulator .probability-fill {
+    height: 100%;
+    background: var(--viz-series-1);
+    border-radius: inherit;
+    transition: width 500ms ease;
+  }
+
+  #llm-internals-simulator .probability-row.is-top .probability-token {
+    color: var(--foreground);
+  }
+
+  #llm-internals-simulator .probability-row:not(.is-top) .probability-fill {
+    opacity: 0.55;
+  }
+
+  #llm-internals-simulator .probability-value {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #llm-internals-simulator .formula-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 22px;
+    color: var(--muted-foreground);
+  }
+
+  #llm-internals-simulator .formula-chip {
+    padding: 6px 9px;
+    border-radius: 7px;
+    background: var(--muted);
+  }
+
+  #llm-internals-simulator [data-tooltip] {
+    cursor: help;
+  }
+
+  #llm-internals-simulator .llm-quiz {
+    margin: 24px auto 0;
+    width: min(660px, 100%);
+    animation: llm-quiz-in 260ms ease-out both;
+  }
+
+  #llm-internals-simulator .llm-quiz fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  #llm-internals-simulator .llm-quiz legend {
+    margin-bottom: 12px;
+    color: var(--foreground);
+  }
+
+  #llm-internals-simulator .llm-quiz-options {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  #llm-internals-simulator .llm-quiz-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  #llm-internals-simulator .llm-quiz-feedback {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+  }
+
+  #llm-internals-simulator .llm-quiz-feedback.is-correct {
+    color: var(--green);
+  }
+
+  #llm-internals-simulator .llm-quiz-feedback.is-wrong {
+    color: var(--destructive);
+  }
+
+  @keyframes llm-quiz-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @media (max-width: 680px) {
+    #llm-internals-simulator .llm-sim-actions {
+      margin-inline-start: 0;
+    }
+
+    #llm-internals-simulator .llm-sim-progress {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    #llm-internals-simulator .attention-layout {
+      grid-template-columns: 1fr;
+    }
+
+    #llm-internals-simulator .llm-sim-stage {
+      min-height: 760px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    #llm-internals-simulator .llm-sim-progress-label {
+      display: none;
+    }
+
+    #llm-internals-simulator .probability-row {
+      grid-template-columns: 54px 1fr 48px;
+      gap: 8px;
+    }
+
+    #llm-internals-simulator .matrix-cell {
+      width: 36px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #llm-internals-simulator *,
+    #llm-internals-simulator *::before,
+    #llm-internals-simulator *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+</style>
+
+<script>
+(function () {
+  "use strict";
+
+  var root = document.getElementById("llm-internals-simulator");
+  if (!root) return;
+
+  var input = root.querySelector("#llm-sim-input");
+  var prevButton = root.querySelector("#llm-sim-prev");
+  var pauseButton = root.querySelector("#llm-sim-pause");
+  var nextButton = root.querySelector("#llm-sim-next");
+  var progress = root.querySelector(".llm-sim-progress");
+  var kicker = root.querySelector("#llm-sim-kicker");
+  var title = root.querySelector("#llm-sim-stage-title");
+  var status = root.querySelector("#llm-sim-status");
+  var visual = root.querySelector("#llm-sim-visual");
+  var detail = root.querySelector("#llm-sim-detail");
+
+  var DIM = 6;
+  var LAYERS = 3;
+  var step = 0;
+  var playing = true;
+  var timer = null;
+  var state = null;
+  var quizAnswers = {};
+
+  var stageDefs = [
+    { short: "Token", kicker: "01 · 输入表示", title: "分词与 token ID" },
+    { short: "Embedding", kicker: "02 · 向量表示", title: "Token Embedding + 位置信息" },
+    { short: "L1 Attention", kicker: "03 · Transformer 第 1 层", title: "因果自注意力" },
+    { short: "L1 Output", kicker: "04 · Transformer 第 1 层", title: "残差流与 MLP 输出" },
+    { short: "L2 Attention", kicker: "05 · Transformer 第 2 层", title: "注意力重新分配" },
+    { short: "L2 Output", kicker: "06 · Transformer 第 2 层", title: "上下文表示继续变化" },
+    { short: "L3", kicker: "07 · Transformer 第 3 层", title: "最终隐藏状态" },
+    { short: "Next token", kicker: "08 · 输出头", title: "下一个 token 概率分布" }
+  ];
+
+  var quizzes = {
+    3: {
+      question: "这一层的 Attention 主要在做什么？",
+      options: [
+        "根据上下文，为可见 token 分配权重并混合它们的信息",
+        "把原始文本重新切分成 token",
+        "在推理时直接更新模型参数"
+      ],
+      correct: 0,
+      explanation: "Attention 使用 Query 与 Key 计算权重，再对 Value 加权求和，让每个位置读取相关上下文。"
+    },
+    5: {
+      question: "如果去掉 LayerNorm / RMSNorm，最可能出现什么影响？",
+      options: [
+        "训练更不稳定，激活与梯度的尺度更难控制",
+        "模型会立即失去全部词表",
+        "因果 Mask 会自动消失"
+      ],
+      correct: 0,
+      explanation: "归一化帮助控制残差流中的数值尺度；去掉后不一定立刻失败，但深层训练通常更难稳定。"
+    },
+    6: {
+      question: "Residual Connection（残差连接）的主要作用是什么？",
+      options: [
+        "保留已有表示并让各子层学习增量，同时改善信息与梯度传播",
+        "把所有 token 压缩成同一个向量",
+        "保证模型生成的事实一定正确"
+      ],
+      correct: 0,
+      explanation: "残差连接把子层输出加回主干，使信息能跨层保留，也让深层网络更容易优化。"
+    }
+  };
+
+  var knownWords = [
+    "大规模语言模型", "人工智能", "机器学习", "深度学习", "语言模型",
+    "Transformer", "Attention", "喜欢", "学习", "现代", "模型", "如何",
+    "工作", "知识", "技术", "中文", "世界", "今天", "很好", "非常"
+  ];
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function tooltipAttr(text) {
+    return " data-tooltip=\"" + escapeHtml(text) + "\" data-tooltip-placement=\"top\"";
+  }
+
+  function componentTooltip(label) {
+    var tooltips = {
+      "输入 H1": "上一阶段传来的隐藏状态，是这一层继续加工的起点。",
+      "输入 H2": "第一层的输出隐藏状态，已经包含初步上下文信息。",
+      "输入 H3": "第二层的输出隐藏状态，将被最后一层继续重组。",
+      "RMSNorm": "按向量的均方根缩放数值，帮助控制激活尺度并稳定深层训练。",
+      "Attention": "让每个位置按相关性，从自己及之前的 token 读取并混合信息。",
+      "+ Residual": "把子层产生的增量加回原表示，保留信息并改善梯度传播。",
+      "MLP / FFN": "前馈网络；在每个 token 位置独立进行非线性通道变换。",
+      "Final Norm": "在送入输出头前再次规范最终隐藏状态的数值尺度。",
+      "取最后位置": "自回归生成下一个 token 时，主要读取序列最后位置的隐藏状态。"
+    };
+    return tooltips[label] || "Transformer 计算流程中的一个教学组件。";
+  }
+
+  function tokenize(text) {
+    var source = text.trim() || "我喜欢学习 AI";
+    var tokens = [];
+    var i = 0;
+    while (i < source.length) {
+      var rest = source.slice(i);
+      var space = rest.match(/^\s+/);
+      if (space) {
+        i += space[0].length;
+        if (i < source.length) {
+          var latinAfterSpace = source.slice(i).match(/^[A-Za-z][A-Za-z0-9._+-]*/);
+          if (latinAfterSpace) {
+            tokens.push("▁" + latinAfterSpace[0]);
+            i += latinAfterSpace[0].length;
+          }
+        }
+        continue;
+      }
+      var latin = rest.match(/^[A-Za-z][A-Za-z0-9._+-]*/);
+      if (latin) {
+        tokens.push(latin[0]);
+        i += latin[0].length;
+        continue;
+      }
+      var number = rest.match(/^\d+(?:\.\d+)?/);
+      if (number) {
+        tokens.push(number[0]);
+        i += number[0].length;
+        continue;
+      }
+      var matched = "";
+      for (var w = 0; w < knownWords.length; w += 1) {
+        if (rest.indexOf(knownWords[w]) === 0 && knownWords[w].length > matched.length) {
+          matched = knownWords[w];
+        }
+      }
+      if (matched) {
+        tokens.push(matched);
+        i += matched.length;
+      } else {
+        tokens.push(source[i]);
+        i += 1;
+      }
+    }
+    return tokens.slice(0, 8);
+  }
+
+  function hashText(text) {
+    var hash = 2166136261;
+    for (var i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function seeded(seed) {
+    var value = seed >>> 0;
+    return function () {
+      value += 0x6D2B79F5;
+      var t = value;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function makeMatrix(rows, cols, seed, scale) {
+    var random = seeded(seed);
+    var matrix = [];
+    for (var r = 0; r < rows; r += 1) {
+      var row = [];
+      for (var c = 0; c < cols; c += 1) {
+        row.push((random() * 2 - 1) * scale);
+      }
+      matrix.push(row);
+    }
+    return matrix;
+  }
+
+  function tokenVector(token, position) {
+    var random = seeded(hashText(token) + position * 101);
+    var vector = [];
+    for (var d = 0; d < DIM; d += 1) {
+      var base = random() * 1.6 - 0.8;
+      var positionSignal = Math.sin((position + 1) / Math.pow(100, d / DIM)) * 0.22;
+      vector.push(base + positionSignal);
+    }
+    return vector;
+  }
+
+  function matVec(vector, matrix) {
+    var output = [];
+    for (var c = 0; c < matrix[0].length; c += 1) {
+      var sum = 0;
+      for (var r = 0; r < vector.length; r += 1) sum += vector[r] * matrix[r][c];
+      output.push(sum);
+    }
+    return output;
+  }
+
+  function rmsNorm(vector) {
+    var meanSquare = vector.reduce(function (sum, value) {
+      return sum + value * value;
+    }, 0) / vector.length;
+    var denom = Math.sqrt(meanSquare + 1e-6);
+    return vector.map(function (value) { return value / denom; });
+  }
+
+  function softmax(values) {
+    var max = Math.max.apply(null, values);
+    var exp = values.map(function (value) { return Math.exp(value - max); });
+    var sum = exp.reduce(function (total, value) { return total + value; }, 0);
+    return exp.map(function (value) { return value / sum; });
+  }
+
+  function add(a, b) {
+    return a.map(function (value, index) { return value + b[index]; });
+  }
+
+  function scaleVector(vector, scale) {
+    return vector.map(function (value) { return value * scale; });
+  }
+
+  function attentionLayer(inputs, layerIndex) {
+    var normed = inputs.map(rmsNorm);
+    var wq = makeMatrix(DIM, DIM, 1000 + layerIndex * 31, 0.44);
+    var wk = makeMatrix(DIM, DIM, 2000 + layerIndex * 37, 0.44);
+    var wv = makeMatrix(DIM, DIM, 3000 + layerIndex * 41, 0.44);
+    var wo = makeMatrix(DIM, DIM, 4000 + layerIndex * 43, 0.32);
+    var q = normed.map(function (row) { return matVec(row, wq); });
+    var k = normed.map(function (row) { return matVec(row, wk); });
+    var v = normed.map(function (row) { return matVec(row, wv); });
+    var weights = [];
+    var contexts = [];
+
+    for (var i = 0; i < inputs.length; i += 1) {
+      var scores = [];
+      for (var j = 0; j < inputs.length; j += 1) {
+        if (j > i) {
+          scores.push(-Infinity);
+        } else {
+          var dot = 0;
+          for (var d = 0; d < DIM; d += 1) dot += q[i][d] * k[j][d];
+          scores.push(dot / Math.sqrt(DIM));
+        }
+      }
+      var visible = softmax(scores.slice(0, i + 1));
+      var rowWeights = scores.map(function (_, index) {
+        return index <= i ? visible[index] : 0;
+      });
+      weights.push(rowWeights);
+      var context = new Array(DIM).fill(0);
+      for (var source = 0; source <= i; source += 1) {
+        for (var dim = 0; dim < DIM; dim += 1) {
+          context[dim] += rowWeights[source] * v[source][dim];
+        }
+      }
+      contexts.push(matVec(context, wo));
+    }
+
+    var afterAttention = inputs.map(function (row, index) {
+      return add(row, scaleVector(contexts[index], 0.72));
+    });
+    var w1 = makeMatrix(DIM, DIM * 2, 5000 + layerIndex * 47, 0.30);
+    var w2 = makeMatrix(DIM * 2, DIM, 6000 + layerIndex * 53, 0.24);
+    var outputs = afterAttention.map(function (row) {
+      var hidden = matVec(rmsNorm(row), w1).map(function (value) {
+        return value / (1 + Math.exp(-value));
+      });
+      return add(row, scaleVector(matVec(hidden, w2), 0.58));
+    });
+    return { weights: weights, output: outputs };
+  }
+
+  function buildState() {
+    var text = input.value.trim() || "我喜欢学习 AI";
+    var tokens = tokenize(text);
+    var ids = tokens.map(function (token) { return 100 + (hashText(token) % 9000); });
+    var embeddings = tokens.map(tokenVector);
+    var layers = [];
+    var current = embeddings;
+    for (var layer = 1; layer <= LAYERS; layer += 1) {
+      var result = attentionLayer(current, layer);
+      layers.push(result);
+      current = result.output;
+    }
+    var probabilities = outputProbabilities(text, current[current.length - 1]);
+    return {
+      text: text,
+      tokens: tokens,
+      ids: ids,
+      embeddings: embeddings,
+      layers: layers,
+      probabilities: probabilities
+    };
+  }
+
+  function outputProbabilities(text, hidden) {
+    var candidates = ["。", "，", "的", "是", "和", "很", "知识", "技术", "模型", "世界"];
+    var logits = candidates.map(function (candidate, index) {
+      var vector = tokenVector(candidate, index + 7);
+      var score = 0;
+      for (var d = 0; d < DIM; d += 1) score += hidden[d] * vector[d];
+      score /= Math.sqrt(DIM);
+      if (/学习/.test(text) && candidate === "知识") score += 1.35;
+      if (/AI|人工智能/i.test(text) && candidate === "技术") score += 1.55;
+      if (/模型/.test(text) && candidate === "。") score += 0.75;
+      return score;
+    });
+    var probs = softmax(logits);
+    return candidates.map(function (token, index) {
+      return { token: token, logit: logits[index], probability: probs[index] };
+    }).sort(function (a, b) { return b.probability - a.probability; }).slice(0, 8);
+  }
+
+  function vectorText(vector) {
+    return "[" + vector.slice(0, 4).map(function (value) { return value.toFixed(2); }).join(", ") + ", …]";
+  }
+
+  function renderProgress() {
+    progress.innerHTML = stageDefs.map(function (stage, index) {
+      var className = "llm-sim-progress-item";
+      if (index < step) className += " is-done";
+      if (index === step) className += " is-active";
+      return "<div class=\"" + className + "\"><span class=\"llm-sim-progress-mark\"></span>" +
+        "<span class=\"llm-sim-progress-label text-small\">" + escapeHtml(stage.short) + "</span></div>";
+    }).join("");
+  }
+
+  function renderTokens() {
+    return "<div class=\"token-flow\">" + state.tokens.map(function (token, index) {
+      var arrow = index ? "<span class=\"flow-arrow\"><i data-lucide=\"arrow-right\" aria-hidden=\"true\"></i></span>" : "";
+      return arrow + "<div class=\"token-node\"" + tooltipAttr("Token：由教学分词器从输入文本切出的符号单元。") + "><span>" + escapeHtml(token) + "</span>" +
+        "<span class=\"token-id text-small\"" + tooltipAttr("Token ID：该 token 在模型词表中的整数编号。") + ">ID " + state.ids[index] + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  function renderVectors(vectors, focusLast) {
+    var maxAbs = 0.01;
+    vectors.forEach(function (vector) {
+      vector.forEach(function (value) { maxAbs = Math.max(maxAbs, Math.abs(value)); });
+    });
+    return "<div class=\"vector-flow\">" + vectors.map(function (vector, index) {
+      var bars = vector.map(function (value) {
+        var height = 8 + Math.abs(value) / maxAbs * 92;
+        var opacity = value >= 0 ? 1 : 0.42;
+        return "<span class=\"vector-bar-wrap\"><span class=\"vector-bar\" style=\"height:" + height.toFixed(1) + "%;opacity:" + opacity + "\"></span></span>";
+      }).join("");
+      var tokenClass = "token-node" + (focusLast && index === vectors.length - 1 ? " is-focus" : "");
+      return "<div class=\"vector-group\"><div class=\"" + tokenClass + "\"" + tooltipAttr("Embedding：把离散 token ID 查表映射为连续向量。") + ">" + escapeHtml(state.tokens[index]) + "</div>" +
+        "<div class=\"vector-bars\" aria-label=\"" + escapeHtml(state.tokens[index]) + " 的六维教学向量\"" + tooltipAttr("每根柱表示一个向量维度；真实模型的维度通常远多于此。") + ">" + bars + "</div>" +
+        "<code class=\"vector-values text-small\">" + escapeHtml(vectorText(vector)) + "</code></div>";
+    }).join("") + "</div>";
+  }
+
+  function renderAttention(layerIndex) {
+    var weights = state.layers[layerIndex].weights;
+    var n = state.tokens.length;
+    var width = 430;
+    var height = 250;
+    var leftX = 66;
+    var rightX = 362;
+    var yStep = n > 1 ? 190 / (n - 1) : 0;
+    var edges = "";
+    var nodes = "";
+    for (var target = 0; target < n; target += 1) {
+      var yTarget = 30 + target * yStep;
+      for (var source = 0; source <= target; source += 1) {
+        var ySource = 30 + source * yStep;
+        var weight = weights[target][source];
+        edges += "<path class=\"attention-edge\" d=\"M " + (leftX + 18) + " " + yTarget + " C 175 " + yTarget + ", 250 " + ySource + ", " + (rightX - 18) + " " + ySource + "\" stroke-width=\"" + (0.8 + weight * 7).toFixed(2) + "\" opacity=\"" + (0.20 + weight * 0.78).toFixed(2) + "\"></path>";
+      }
+      nodes += "<circle class=\"attention-node\" cx=\"" + leftX + "\" cy=\"" + yTarget + "\" r=\"17\"></circle>" +
+        "<text class=\"attention-node-label\" x=\"" + leftX + "\" y=\"" + (yTarget + 4) + "\" text-anchor=\"middle\">" + escapeHtml(shortToken(state.tokens[target])) + "</text>" +
+        "<circle class=\"attention-node\" cx=\"" + rightX + "\" cy=\"" + yTarget + "\" r=\"17\"></circle>" +
+        "<text class=\"attention-node-label\" x=\"" + rightX + "\" y=\"" + (yTarget + 4) + "\" text-anchor=\"middle\">" + escapeHtml(shortToken(state.tokens[target])) + "</text>";
+    }
+    var svg = "<div class=\"attention-diagram\"" + tooltipAttr("Attention 连线：线越粗，表示这个 Query 从对应 Key / Value 位置读取的教学权重越高。") + "><svg viewBox=\"0 0 " + width + " " + height + "\" role=\"img\" aria-label=\"第 " + (layerIndex + 1) + " 层因果注意力连线，线越粗代表教学权重越高\">" +
+      "<title>因果自注意力连线</title><desc>左侧是 Query 位置，右侧是可读取的历史 Key 和 Value 位置。</desc>" + edges + nodes +
+      "<text class=\"attention-node-label\" x=\"" + leftX + "\" y=\"246\" text-anchor=\"middle\">Query</text>" +
+      "<text class=\"attention-node-label\" x=\"" + rightX + "\" y=\"246\" text-anchor=\"middle\">Key / Value</text></svg></div>";
+    return "<div class=\"formula-strip text-small\"><span class=\"formula-chip\"" + tooltipAttr("Query：当前位置发出的检索向量，表示它正在寻找什么信息。") + ">Q = HWq</span><span>→</span><span class=\"formula-chip\"" + tooltipAttr("Key：每个可见位置提供的匹配向量，用来和 Query 计算相关性。") + ">K = HWk</span><span>→</span><span class=\"formula-chip\"" + tooltipAttr("缩放点积得到分数；因果 Mask 屏蔽未来位置；Softmax 将分数归一化为权重。") + ">softmax(QKᵀ / √d + mask)</span><span>→</span><span class=\"formula-chip\"" + tooltipAttr("Value：真正被加权汇总的信息向量；A 是注意力权重矩阵。") + ">AV</span></div>" +
+      "<div class=\"attention-layout\">" + svg + renderMatrix(weights) + "</div>";
+  }
+
+  function shortToken(token) {
+    return token.length > 3 ? token.slice(0, 2) + "…" : token;
+  }
+
+  function renderMatrix(matrix) {
+    var n = matrix.length;
+    var cells = "<span></span>";
+    for (var c = 0; c < n; c += 1) {
+      cells += "<span class=\"matrix-label text-small\">" + escapeHtml(shortToken(state.tokens[c])) + "</span>";
+    }
+    for (var r = 0; r < n; r += 1) {
+      cells += "<span class=\"matrix-label text-small\">" + escapeHtml(shortToken(state.tokens[r])) + "</span>";
+      for (var col = 0; col < n; col += 1) {
+        if (col > r) {
+          cells += "<span class=\"matrix-cell is-masked text-small\">mask</span>";
+        } else {
+          var value = matrix[r][col];
+          var alpha = 8 + Math.round(value * 38);
+          cells += "<span class=\"matrix-cell text-small\" style=\"background:color-mix(in srgb,var(--viz-series-1) " + alpha + "%,transparent)\">" + value.toFixed(2) + "</span>";
+        }
+      }
+    }
+    return "<div class=\"matrix-wrap\"" + tooltipAttr("Attention 矩阵：每一行的可见权重之和为 1；mask 表示未来 token 不可读取。") + "><div class=\"attention-matrix\" style=\"grid-template-columns:repeat(" + (n + 1) + ",42px)\" role=\"table\" aria-label=\"注意力权重矩阵\">" + cells + "</div></div>";
+  }
+
+  function renderLayerOutput(layerIndex, finalLayer) {
+    var label = finalLayer ? "RMSNorm → Attention → + Residual → MLP / FFN → + Residual → Final Norm → 取最后位置" : "RMSNorm → Attention → + Residual → MLP / FFN → + Residual";
+    var inputLabel = "输入 H" + (layerIndex + 1);
+    return "<div class=\"block-flow text-small\"><span class=\"block-node\"" + tooltipAttr(componentTooltip(inputLabel)) + ">" + inputLabel + "</span><span>→</span>" +
+      label.split(" → ").map(function (part) { return "<span class=\"block-node\"" + tooltipAttr(componentTooltip(part)) + ">" + escapeHtml(part) + "</span>"; }).join("<span>→</span>") +
+      "</div>" + renderVectors(state.layers[layerIndex].output, finalLayer);
+  }
+
+  function renderQuiz() {
+    var quiz = quizzes[step];
+    if (!quiz) return "";
+    var answer = quizAnswers[step];
+    var options = quiz.options.map(function (option, index) {
+      var id = "llm-quiz-" + step + "-" + index;
+      var checked = answer && answer.selected === index ? " checked" : "";
+      var disabled = answer ? " disabled" : "";
+      return "<div class=\"form-check\"><input class=\"form-check-input\" type=\"radio\" name=\"llm-quiz-" + step + "\" id=\"" + id + "\" value=\"" + index + "\"" + checked + disabled + ">" +
+        "<label class=\"form-check-label\" for=\"" + id + "\">" + escapeHtml(option) + "</label></div>";
+    }).join("");
+    var feedback = "";
+    if (answer) {
+      var feedbackClass = answer.correct ? "is-correct" : "is-wrong";
+      var feedbackIcon = answer.correct ? "circle-check" : "circle-x";
+      var feedbackLead = answer.correct ? "回答正确。" : "回答不正确。";
+      feedback = "<div class=\"llm-quiz-feedback " + feedbackClass + "\" role=\"status\"><i data-lucide=\"" + feedbackIcon + "\" aria-hidden=\"true\"></i><span>" + feedbackLead + " " + escapeHtml(quiz.explanation) + "</span></div>";
+    }
+    return "<form class=\"card llm-quiz\" data-quiz-step=\"" + step + "\"><fieldset><legend>小问题 · " + escapeHtml(quiz.question) + "</legend>" +
+      "<div class=\"llm-quiz-options\">" + options + "</div><div class=\"llm-quiz-footer\">" +
+      (answer ? feedback : "<button class=\"btn btn-primary llm-quiz-submit\" type=\"submit\">提交答案</button><span class=\"llm-quiz-feedback text-small\" role=\"status\"></span>") +
+      "</div></fieldset></form>";
+  }
+
+  function bindQuiz() {
+    var form = visual.querySelector(".llm-quiz");
+    if (!form || quizAnswers[step]) return;
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var selected = form.querySelector("input[type=radio]:checked");
+      var feedback = form.querySelector(".llm-quiz-feedback");
+      if (!selected) {
+        feedback.className = "llm-quiz-feedback text-small is-wrong";
+        feedback.textContent = "请先选择一个答案。";
+        return;
+      }
+      var selectedIndex = Number(selected.value);
+      quizAnswers[step] = {
+        selected: selectedIndex,
+        correct: selectedIndex === quizzes[step].correct
+      };
+      render();
+      schedule();
+    });
+  }
+
+  function renderProbabilities() {
+    var rows = state.probabilities.map(function (item, index) {
+      var percent = item.probability * 100;
+      return "<div class=\"probability-row" + (index === 0 ? " is-top" : "") + "\">" +
+        "<code class=\"probability-token\">" + escapeHtml(item.token) + "</code>" +
+        "<div class=\"probability-track\" aria-hidden=\"true\"><div class=\"probability-fill\" style=\"width:" + percent.toFixed(1) + "%\"></div></div>" +
+        "<span class=\"probability-value text-small\">" + percent.toFixed(1) + "%</span></div>";
+    }).join("");
+    return "<div class=\"formula-strip text-small\"><span class=\"formula-chip\"" + tooltipAttr("最后位置的上下文化向量，汇总了生成下一 token 所需的信息。") + ">最后隐藏状态</span><span>→</span><span class=\"formula-chip\"" + tooltipAttr("LM Head：把隐藏向量线性投影到词表大小，得到每个候选 token 的分数。") + ">LM Head</span><span>→</span><span class=\"formula-chip\"" + tooltipAttr("Logits：Softmax 之前、尚未归一化的候选分数。") + ">logits</span><span>→</span><span class=\"formula-chip\"" + tooltipAttr("Softmax 把分数转成分布；解码策略再按贪心或采样选择 token。") + ">softmax / sampling</span></div>" +
+      "<div class=\"probability-list\" role=\"img\" aria-label=\"候选下一个 token 的教学概率分布\"" + tooltipAttr("每条长度表示一个候选 token 的教学概率；总概率为 100%。") + ">" + rows + "</div>";
+  }
+
+  function render() {
+    var stage = stageDefs[step];
+    kicker.textContent = stage.kicker;
+    title.textContent = stage.title;
+    status.textContent = "步骤 " + (step + 1) + " / " + stageDefs.length;
+    renderProgress();
+
+    if (step === 0) {
+      visual.innerHTML = renderTokens();
+      detail.textContent = "教学分词器：使用少量词表与最长匹配；真实 tokenizer 的词表和切分规则由具体模型决定。";
+    } else if (step === 1) {
+      visual.innerHTML = renderVectors(state.embeddings, false);
+      detail.textContent = "每个 token 映射为 6 维教学向量；真实模型通常使用数千维，并可能通过 RoPE 等机制注入位置信息。";
+    } else if (step === 2) {
+      visual.innerHTML = renderAttention(0);
+      detail.textContent = "行是 Query，列是可读取的历史位置；右上三角被因果 mask 屏蔽。";
+    } else if (step === 3) {
+      visual.innerHTML = renderLayerOutput(0, false) + renderQuiz();
+      detail.textContent = "Attention 混合不同位置的信息，MLP 在每个位置独立变换通道，残差连接把增量写回隐藏状态。";
+    } else if (step === 4) {
+      visual.innerHTML = renderAttention(1);
+      detail.textContent = "第二层接收第一层的上下文化表示，因此即使 token 相同，注意力分布也会发生变化。";
+    } else if (step === 5) {
+      visual.innerHTML = renderLayerOutput(1, false) + renderQuiz();
+      detail.textContent = "向量变化代表上下文信息被逐层重组；它们不是可直接阅读的语义坐标。";
+    } else if (step === 6) {
+      visual.innerHTML = renderLayerOutput(2, true) + renderQuiz();
+      detail.textContent = "生成下一个 token 时，输出头主要读取序列最后位置的最终隐藏状态。";
+    } else {
+      visual.innerHTML = renderProbabilities();
+      detail.textContent = "概率是教学模拟值，不是任何真实模型的预测；解码器会按贪心或采样策略选出一个 token。";
+    }
+
+    prevButton.disabled = step === 0;
+    nextButton.disabled = step === stageDefs.length - 1 || Boolean(quizzes[step] && !quizAnswers[step]);
+    bindQuiz();
+    if (typeof lucide !== "undefined") lucide.createIcons({ attrs: { width: 16, height: 16 } });
+  }
+
+  function stopTimer() {
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+  }
+
+  function schedule() {
+    stopTimer();
+    if (!playing || step >= stageDefs.length - 1 || (quizzes[step] && !quizAnswers[step])) return;
+    timer = window.setTimeout(function () {
+      step += 1;
+      render();
+      schedule();
+    }, 2600);
+  }
+
+  function setPlaying(value) {
+    playing = value;
+    pauseButton.setAttribute("aria-pressed", String(!playing));
+    var label = pauseButton.querySelector("span");
+    label.textContent = playing ? "暂停" : "继续";
+    var icon = pauseButton.querySelector("i, svg");
+    if (icon) {
+      var replacement = document.createElement("i");
+      replacement.setAttribute("data-lucide", playing ? "pause" : "play");
+      replacement.setAttribute("aria-hidden", "true");
+      icon.replaceWith(replacement);
+    }
+    if (typeof lucide !== "undefined") lucide.createIcons({ attrs: { width: 16, height: 16 } });
+    schedule();
+  }
+
+  input.addEventListener("input", function () {
+    state = buildState();
+    quizAnswers = {};
+    step = 0;
+    render();
+    schedule();
+  });
+
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      state = buildState();
+      quizAnswers = {};
+      step = 0;
+      render();
+      schedule();
+    }
+  });
+
+  prevButton.addEventListener("click", function () {
+    step = Math.max(0, step - 1);
+    render();
+    schedule();
+  });
+
+  nextButton.addEventListener("click", function () {
+    step = Math.min(stageDefs.length - 1, step + 1);
+    render();
+    schedule();
+  });
+
+  pauseButton.addEventListener("click", function () {
+    setPlaying(!playing);
+  });
+
+  state = buildState();
+  render();
+  schedule();
+})();
+</script>
+
+<script id="codex-visualization-floating-ui-core" src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
+<script id="codex-visualization-floating-ui-dom" src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
+<script id="codex-visualization-lucide" async src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js"></script>
+<script id="codex-visualization-tooltip">/* oxlint-disable typescript/no-unsafe-argument, typescript/no-unsafe-call, typescript/no-unsafe-return */
+// Runs inside the visualization sandbox, not the host webview.
+(() => {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set(["top", "right", "bottom", "left"]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =>
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest("[data-tooltip]")
+      : null;
+  const containsTarget = (trigger, target) =>
+    target?.nodeType != null && trigger.contains(target);
+  const getContent = (trigger) =>
+    trigger.getAttribute("data-tooltip")?.trim() ?? "";
+  const getPlacement = (trigger) => {
+    const placement = trigger.getAttribute("data-tooltip-placement");
+    return tooltipPlacements.has(placement) ? placement : "top";
+  };
+  const getTooltip = () => {
+    if (tooltip == null) {
+      tooltip = document.createElement("div");
+      tooltip.id = tooltipId;
+      tooltip.className = "tooltip";
+      tooltip.setAttribute("role", "tooltip");
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) => {
+    const ids = new Set(
+      (trigger.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute("aria-describedby");
+    } else {
+      trigger.setAttribute("aria-describedby", [...ids].join(" "));
+    }
+  };
+  const clearOpenTimeout = () => {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) => {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) => {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              "--tooltip-available-width",
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              "--tooltip-available-height",
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: "fixed",
+    })
+      .then(({ x, y }) => {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = "visible";
+      })
+      .catch(() => {
+        if (activeTrigger === trigger && request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) => {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = "hidden";
+    floating.style.transform = "translate(0, 0)";
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () => {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) => {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() < skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() => {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(":focus-visible")) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) => {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () => {
+    closeTooltip(false);
+    document.removeEventListener("pointerover", handlePointerOpen);
+    document.removeEventListener("pointerout", handleLeave);
+    document.removeEventListener("focusin", handleFocusIn);
+    document.removeEventListener("focusout", handleLeave);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("contextmenu", handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener("pointerover", handlePointerOpen);
+  document.addEventListener("pointerout", handleLeave);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleLeave);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("contextmenu", handleContextMenu);
+  window.addEventListener("pagehide", destroy, { once: true });
+})();
+</script>
+<script id="codex-visualization-lucide-initialization">(() => {
+  const initialize = () => {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById("codex-visualization-lucide")
+    ?.addEventListener("load", initialize, { once: true });
+})();
+</script>
+</body>
+</html>
