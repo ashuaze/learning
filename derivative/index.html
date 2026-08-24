@@ -968,14 +968,16 @@ svg {
 
   #derivative-lab .derivative-visual-wrap {
     width: 100%;
+    max-width: 988px;
     min-height: 390px;
+    margin-inline: auto;
   }
 
   #derivative-lab .derivative-plot {
     display: block;
     width: 100%;
     height: auto;
-    overflow: visible;
+    overflow: hidden;
   }
 
   #derivative-lab .derivative-plot text {
@@ -1129,6 +1131,14 @@ svg {
 
     #derivative-lab .derivative-visual-wrap {
       min-height: 240px;
+    }
+
+    #derivative-lab .derivative-plot text {
+      font-size: 24px;
+    }
+
+    #derivative-lab .derivative-plot .plot-label {
+      font-size: 25px;
     }
 
     #derivative-lab .derivative-nav {
@@ -1327,6 +1337,12 @@ svg {
       append(group, "text", { x: xMap(x) + dx, y: yMap(y) + dy, class: "plot-label" }, label);
     }
 
+    function addClip(svg, id, box) {
+      const defs = append(svg, "defs", {});
+      const clip = append(defs, "clipPath", { id });
+      append(clip, "rect", { x: box.x, y: box.y, width: box.w, height: box.h });
+    }
+
     function drawMainPlot() {
       const svg = els.plot;
       while (svg.lastChild && !["title", "desc"].includes(svg.lastChild.tagName)) svg.removeChild(svg.lastChild);
@@ -1339,10 +1355,13 @@ svg {
       const xMax = 2.2;
       const yMin = absMode ? -0.5 : -0.8;
       const yMax = absMode ? 2.7 : 4.8;
+      const mainClipId = "derivative-main-clip";
+      addClip(svg, mainClipId, box);
       const group = append(svg, "g", {});
+      const marks = append(svg, "g", { "clip-path": "url(#" + mainClipId + ")" });
       const maps = drawAxes(group, box, xMin, xMax, yMin, yMax);
       const fn = absMode ? Math.abs : f;
-      append(group, "path", { d: pathFor(fn, xMin, xMax, maps.xMap, maps.yMap), class: "curve-line" });
+      append(marks, "path", { d: pathFor(fn, xMin, xMax, maps.xMap, maps.yMap), class: "curve-line" });
 
       if (stage === 0) {
         drawPoint(group, a, f(a), maps.xMap, maps.yMap, "point-p", "P(a, f(a))", 10, -10);
@@ -1354,8 +1373,8 @@ svg {
         const rightX = h;
         const leftX = -h;
         const extent = 1.8;
-        append(group, "line", { x1: maps.xMap(-extent), y1: maps.yMap(extent), x2: maps.xMap(0), y2: maps.yMap(0), class: "secant-line" });
-        append(group, "line", { x1: maps.xMap(0), y1: maps.yMap(0), x2: maps.xMap(extent), y2: maps.yMap(extent), class: "tangent-line" });
+        append(marks, "line", { x1: maps.xMap(-extent), y1: maps.yMap(extent), x2: maps.xMap(0), y2: maps.yMap(0), class: "secant-line" });
+        append(marks, "line", { x1: maps.xMap(0), y1: maps.yMap(0), x2: maps.xMap(extent), y2: maps.yMap(extent), class: "tangent-line" });
         drawPoint(group, 0, 0, maps.xMap, maps.yMap, "point-p", "P(0,0)", 10, 19);
         drawPoint(group, leftX, Math.abs(leftX), maps.xMap, maps.yMap, "point-q", "Q₋", -28, -9);
         drawPoint(group, rightX, Math.abs(rightX), maps.xMap, maps.yMap, "point-q", "Q₊", 10, -9);
@@ -1373,7 +1392,7 @@ svg {
       const lineX2 = xMax;
 
       if (stage >= 1) {
-        append(group, "line", {
+        append(marks, "line", {
           x1: maps.xMap(lineX1), y1: maps.yMap(py + secantSlope * (lineX1 - a)),
           x2: maps.xMap(lineX2), y2: maps.yMap(py + secantSlope * (lineX2 - a)),
           class: "secant-line"
@@ -1382,7 +1401,7 @@ svg {
       }
 
       if (stage >= 3) {
-        append(group, "line", {
+        append(marks, "line", {
           x1: maps.xMap(lineX1), y1: maps.yMap(py + tangentSlope * (lineX1 - a)),
           x2: maps.xMap(lineX2), y2: maps.yMap(py + tangentSlope * (lineX2 - a)),
           class: "tangent-line"
@@ -1397,30 +1416,33 @@ svg {
         const yValues = [f(a - visibleH * 1.2), f(a + visibleH * 1.2), py];
         const top = maps.yMap(Math.max(...yValues) + visibleH * 0.3);
         const bottom = maps.yMap(Math.min(...yValues) - visibleH * 0.3);
-        append(group, "rect", { x: Math.min(x0, x1), y: Math.min(top, bottom), width: Math.max(8, Math.abs(x1 - x0)), height: Math.max(8, Math.abs(bottom - top)), rx: 3, class: "zoom-box" });
+        append(marks, "rect", { x: Math.min(x0, x1), y: Math.min(top, bottom), width: Math.max(8, Math.abs(x1 - x0)), height: Math.max(8, Math.abs(bottom - top)), rx: 3, class: "zoom-box" });
         append(group, "text", { x: box.x + box.w / 2, y: 20, "text-anchor": "middle", class: "plot-label" }, "全局图");
         drawZoomPlot(svg, a, h);
       }
 
       if (stage === 4) {
         const linearY = py + tangentSlope * h;
-        append(group, "line", { x1: maps.xMap(qx), y1: maps.yMap(linearY), x2: maps.xMap(qx), y2: maps.yMap(qy), class: "remainder-line" });
-        append(group, "circle", { cx: maps.xMap(qx), cy: maps.yMap(linearY), r: 5, fill: "var(--viz-series-3)" });
+        append(marks, "line", { x1: maps.xMap(qx), y1: maps.yMap(linearY), x2: maps.xMap(qx), y2: maps.yMap(qy), class: "remainder-line" });
+        append(marks, "circle", { cx: maps.xMap(qx), cy: maps.yMap(linearY), r: 5, fill: "var(--viz-series-3)" });
         append(group, "text", { x: maps.xMap(qx) + 10, y: maps.yMap(linearY) + 18, class: "plot-label" }, "线性预测");
       }
     }
 
     function drawZoomPlot(svg, a, h) {
       const box = { x: 430, y: 35, w: 285, h: 300 };
+      const zoomClipId = "derivative-zoom-clip";
+      addClip(svg, zoomClipId, box);
       const group = append(svg, "g", {});
+      const marks = append(svg, "g", { "clip-path": "url(#" + zoomClipId + ")" });
       const tangentSlope = 2 * a;
       const span = 1.5;
       const ySpan = Math.max(2.4, Math.abs(tangentSlope) * span + 0.8);
       const maps = drawAxes(group, box, -span, span, -ySpan, ySpan, "u", "Δf / h");
       const normalizedCurve = u => tangentSlope * u + h * u * u;
       const linear = u => tangentSlope * u;
-      append(group, "path", { d: pathFor(normalizedCurve, -span, span, maps.xMap, maps.yMap), class: "curve-line" });
-      append(group, "path", { d: pathFor(linear, -span, span, maps.xMap, maps.yMap), class: "tangent-line" });
+      append(marks, "path", { d: pathFor(normalizedCurve, -span, span, maps.xMap, maps.yMap), class: "curve-line" });
+      append(marks, "path", { d: pathFor(linear, -span, span, maps.xMap, maps.yMap), class: "tangent-line" });
       append(group, "text", { x: box.x + box.w / 2, y: 20, "text-anchor": "middle", class: "plot-label" }, "把 P 附近按 1/h 放大");
       append(group, "text", { x: box.x + box.w - 5, y: box.y + 22, "text-anchor": "end", class: "plot-label" }, "弯曲余量 = h·u²");
     }
